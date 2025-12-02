@@ -25,9 +25,14 @@ def send_model(sock, model_info):
         file_model: Ruta del archivo del modelo a enviar
     """
     # Enviar f1-score
-    bytes_to_send = struct.pack('!d', model_info['f1_score'])
-    sock.sendall(bytes_to_send)
+    bytes_to_send_f1 = struct.pack('!d', model_info['f1_score'])
+    sock.sendall(bytes_to_send_f1)
     print("F1-score del modelo enviado")
+
+    # Enviar accuracy
+    bytes_to_send_acc = struct.pack('!d', model_info['accuracy'])
+    sock.sendall(bytes_to_send_acc)
+    print("Accuracy del modelo enviado")
 
     file_model = model_info['name']
     # Obtener el tamaño del modelo
@@ -80,10 +85,10 @@ def get_model(sock, nn: FederatedModel, round_num: int, PATH_MODELS:str, train: 
 
         model_size = int.from_bytes(model_size_data, byteorder='big', signed=False)
         print(f"[>] Tamaño del modelo recibido: {model_size} bytes", flush=True)
-        print(f"\n{'='*60}")
-        print(f"  RONDA {round_num}")
-        print(f"{'='*60}")
-        print("[>] Esperando modelo del servidor...")
+        print(f"\n{'='*60}", flush=True)
+        print(f"  RONDA {round_num}", flush=True)
+        print(f"{'='*60}", flush=True)
+        print("[>] Esperando modelo del servidor...", flush=True)
         
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         model_name = f'model_round{round_num}_{timestamp}.keras'
@@ -114,12 +119,16 @@ def get_model(sock, nn: FederatedModel, round_num: int, PATH_MODELS:str, train: 
         
         # Evaluar modelo
         print("[>] Evaluando modelo...", flush=True)
-        f1 = nn.evaluate(trained_model_path)
-        print(f"[✓] F1-Score: {f1:.4f}", flush=True)
+        metrics = nn.evaluate(trained_model_path)
+        f1 = metrics['f1']
+        acc = metrics['accuracy']
+
+        print(f"[✓] F1-Score: {f1:.4f} | Accuracy: {acc:.4f}", flush=True)
         
         return {
             "date": timestamp,
             "f1_score": f1,
+            "accuracy": acc,
             "name": trained_model_path,
             "round": round_num
         }
@@ -145,7 +154,7 @@ def save_models_info(models_info, node_id, PATH_MAIN):
         csv_file_path = os.path.join(PATH_MAIN, f'models_info_{node_id}.csv')
         
         with open(csv_file_path, mode='w', newline='') as csvfile:
-            fieldnames = ['round', 'date', 'f1_score', 'name']
+            fieldnames = ['round', 'date', 'f1_score', 'accuracy', 'name']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
             writer.writeheader()

@@ -13,13 +13,27 @@ def recv_exact(sock, n_bytes):
         data += packet
     return data
 
-def handle_client(conn, addr, idx, PATH_RECVMODELS, f1scores):
+def sendconverge(connections, end_signal):
+    for i, (conn, addr) in enumerate(connections):
+        try:
+            print("Enviando confirmación...", flush=True)
+            conn.sendall(b"\x01" if end_signal else b"\x00")
+        except Exception as e:
+            print(f"   [!] Error enviando al cliente {i+1} ({addr}): {e}", flush=True)
+
+def handle_client(conn, addr, idx, PATH_RECVMODELS, f1scores, accs):
     try:
         model_f1score_bytes = recv_exact(conn, 8)
         if not model_f1score_bytes: return
         model_f1score = struct.unpack('!d', model_f1score_bytes)[0]
         f1scores.append(model_f1score)
         print(f"F1-score del modelo recibido de cliente {idx}, F1-score: {model_f1score}", flush=True)
+
+        model_acc_bytes = recv_exact(conn, 8)
+        if not model_acc_bytes: return
+        model_acc = struct.unpack('!d', model_acc_bytes)[0]
+        accs.append(model_acc)
+        print(f"F1-score del modelo recibido de cliente {idx}, Accuracy: {model_acc}", flush=True)
 
         model_size_bytes = recv_exact(conn, 8)
         if not model_size_bytes: return
@@ -40,19 +54,21 @@ def handle_client(conn, addr, idx, PATH_RECVMODELS, f1scores):
     except Exception as e:
         print(f"[!] Error recibiendo modelo del nodo {idx}: {e}", flush=True)
 
-def get_models(connections, idxs, PATH_RECVMODELS, scores):
+def get_models(connections, idxs, PATH_RECVMODELS, scores_f1, scores_acc):
     print("\n[>] Esperando modelos de los clientes...", flush=True)
     threads = []
     f1scores = []
+    accs = []
     for conn, addr, idx in zip([c[0] for c in connections], [c[1] for c in connections], idxs):
-        t = threading.Thread(target=handle_client, args=(conn, addr, idx, PATH_RECVMODELS, f1scores))
+        t = threading.Thread(target=handle_client, args=(conn, addr, idx, PATH_RECVMODELS, f1scores, accs))
         t.start()
         threads.append(t)
 
     for t in threads:
         t.join()
 
-    scores.append(f1scores)
+    scores_f1.append(f1scores)
+    scores_acc.append(accs)
     print("[✓] Todos los modelos recibidos", flush=True)
 
 def send_avg_model(connections, PATH_RECVMODELS, PATH_AVGMODELS, ROUND_number, CSV_MODELS):

@@ -173,8 +173,12 @@ class FederatedModel:
             
             # Calcular métricas
             f1 = f1_score(self.y_test, y_pred, average='weighted', zero_division=0)
+            acc = accuracy_score(self.y_test, y_pred)
             
-            return f1
+            return {
+                'f1':f1,
+                'accuracy':acc
+            }
             
         except Exception as e:
             print(f"[!] Error durante la evaluación: {e}", flush=True)

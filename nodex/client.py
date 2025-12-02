@@ -11,7 +11,7 @@ NODE = os.environ.get('NODE_ID', 'default')
 
 PATH_MAIN = '/app/nodex'
 PATH_MODELS = os.path.join(PATH_MAIN, f'models_{NODE}')
-PATH_DATA = os.path.join("/app/diabetes_divided", f"diabetes_{int(NODE)-1}.csv")
+PATH_DATA = os.path.join("/app/diabetes_divided", f"diabetes_{int(NODE)}.csv")
 
 
 def run(sock, HOST, PORT, ROUNDS):
@@ -39,10 +39,9 @@ def run(sock, HOST, PORT, ROUNDS):
     
     # RONDA 0: Recibir modelo inicial y entrenar
     for round in range(ROUNDS):
-        train = True
-        if round == ROUNDS - 1:
-            train = False  # Última ronda: solo evaluación
-            
+
+        train = not(round == ROUNDS - 1)
+
         model_info = get_model(sock, nn, round, PATH_MODELS=PATH_MODELS, train=train)
         
         if model_info is None:
@@ -55,6 +54,13 @@ def run(sock, HOST, PORT, ROUNDS):
         # Enviar modelo entrenado al servidor
         best_model_info = max(models_info, key=lambda x: x['f1_score'])
         send_model(sock, best_model_info)
+
+
+        print("Recibiendo confirmación...")
+        converged = (sock.recv(1)== b"\x01")
+        print(f"Confirmación recibida {converged}")
+
+        if converged: return
     
     # Guardar información de modelos
     save_models_info(models_info, NODE, PATH_MAIN)

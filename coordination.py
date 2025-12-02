@@ -6,6 +6,8 @@ import threading
 import subprocess
 import csv
 
+from utils import select_leader
+
 # --- CONFIGURACIÓN ---
 NODE_ID = int(os.getenv("NODE_ID", 1))
 BIND_PORT = int(os.getenv("BIND_PORT", 5000))
@@ -154,7 +156,7 @@ def iniciar_cliente(peers):
             print(f" -> Fallo envio a {target_host}: {e}", flush=True)
 
 # --- SELECCIONADOR ---
-def seleccionar_servidor(csv_file):
+def seleccionar_servidor(csv_file, round):
     nodos = []
     try:
         with open(csv_file, 'r') as f:
@@ -176,11 +178,11 @@ def seleccionar_servidor(csv_file):
     if not nodos: return 1
 
     # Lógica de ganador
-    ganador = max(nodos, key=lambda x: 0.5*(0.5 * x['net_up'] + 0.5 * x['net_down']) + 0.3*x['ram'] + 0.35*x['cpu_mhz'] + 0.2*int(x['gpu']) + 0.1*(1/int(x['id'])))
+    ganador = select_leader(nodos, round)
     return ganador['id']
 
 # --- MAIN COORDINATE FUNCTION ---
-def coordinate(peers):
+def coordinate(peers, round):
     global n_sent, n_received, stop_event
     
     # 1. RESETEAR ESTADO (CRÍTICO PARA MULTIPLES RONDAS)
@@ -213,6 +215,6 @@ def coordinate(peers):
     hilo_servidor.join(timeout=2) # Esperamos a que cierre el socket
 
     # 7. Seleccionar Servidor
-    nodo_id = seleccionar_servidor(CSV_METRICS)
+    nodo_id = seleccionar_servidor(CSV_METRICS, round)
     
     return str(nodo_id) # Retornamos string porque tu main hace int(nodo_id)

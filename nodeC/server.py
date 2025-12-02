@@ -1,7 +1,9 @@
 import socket
 import os
 import sys
-from .connections import initial, get_models, send_avg_model
+
+from utils import checkConvergence
+from .connections import initial, get_models, send_avg_model, sendconverge
 import traceback
 
     
@@ -13,13 +15,19 @@ os.makedirs(PATH_RECVMODELS, exist_ok=True)
 os.makedirs(PATH_AVGMODELS, exist_ok=True)
 
 
-def run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, scores):
+def run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores, accs):
 
     # Fase 1: Inicialización y envío de modelo inicial
     initial(sock, connections, idxs, NCLIENTS, PARAMS, PATH_AVGMODELS, CSV_MODELS)
     for round in range(ROUNDS):
         # Fase 2: Recepción de modelos entrenados
-        get_models(connections, idxs, PATH_RECVMODELS, scores)
+        get_models(connections, idxs, PATH_RECVMODELS, f1_scores, accs)
+
+        converged = checkConvergence(f1_scores, 3)
+        sendconverge(connections, converged)
+        if converged:
+            print(f"Convergencia alcanzada en ronda {round}!!!", flush=True)
+            break
         
         # Fase 3: Promediado y envío del modelo global
         send_avg_model(connections, PATH_RECVMODELS, PATH_AVGMODELS, round, CSV_MODELS)
@@ -28,7 +36,7 @@ def run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, scores):
 
 
 
-def server(PORT, ROUNDS, NCLIENTS, PARAMS, scores):
+def server(PORT, ROUNDS, NCLIENTS, PARAMS, f1_scores, accs):
 
     NODE_ID = os.getenv("NODE_ID")
 
@@ -52,7 +60,7 @@ def server(PORT, ROUNDS, NCLIENTS, PARAMS, scores):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((HOST, PORT))
         sock.listen(NCLIENTS)
-        run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, scores)
+        run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores, accs)
         
     except PermissionError:
         print(f"\n[!] Error: No tienes permisos para usar el puerto {PORT}", flush=True)
