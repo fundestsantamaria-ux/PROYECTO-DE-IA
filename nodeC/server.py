@@ -1,10 +1,10 @@
 import socket
 import os
 import sys
-
 from utils import checkConvergence
 from .connections import initial, get_models, send_avg_model, sendconverge
 import traceback
+import time
 
     
 PATH_MODELS = os.path.join('/app/nodeC', 'models')
@@ -15,13 +15,13 @@ os.makedirs(PATH_RECVMODELS, exist_ok=True)
 os.makedirs(PATH_AVGMODELS, exist_ok=True)
 
 
-def run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores, accs):
+def run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores, accs, get_times, send_times):
 
     # Fase 1: Inicialización y envío de modelo inicial
     initial(sock, connections, idxs, NCLIENTS, PARAMS, PATH_AVGMODELS, CSV_MODELS)
     for round in range(ROUNDS):
         # Fase 2: Recepción de modelos entrenados
-        get_models(connections, idxs, PATH_RECVMODELS, f1_scores, accs)
+        get_models(connections, idxs, PATH_RECVMODELS, f1_scores, accs, get_times)
 
         converged = checkConvergence(f1_scores, 3)
         sendconverge(connections, converged)
@@ -30,13 +30,13 @@ def run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores
             break
         
         # Fase 3: Promediado y envío del modelo global
-        send_avg_model(connections, PATH_RECVMODELS, PATH_AVGMODELS, round, CSV_MODELS)
+        send_avg_model(connections, idxs, PATH_RECVMODELS, PATH_AVGMODELS, round, CSV_MODELS, send_times)
         
         print(f"\n[✓] Ronda {round} completado exitosamente", flush=True)
 
 
 
-def server(PORT, ROUNDS, NCLIENTS, PARAMS, f1_scores, accs):
+def server(PORT, ROUNDS, NCLIENTS, PARAMS, f1_scores, accs, get_times, send_times):
 
     NODE_ID = os.getenv("NODE_ID")
 
@@ -60,7 +60,7 @@ def server(PORT, ROUNDS, NCLIENTS, PARAMS, f1_scores, accs):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((HOST, PORT))
         sock.listen(NCLIENTS)
-        run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores, accs)
+        run(connections, idxs, sock, ROUNDS, NCLIENTS, PARAMS, CSV_MODELS, f1_scores, accs, get_times, send_times)
         
     except PermissionError:
         print(f"\n[!] Error: No tienes permisos para usar el puerto {PORT}", flush=True)

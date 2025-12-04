@@ -7,3 +7,5 @@ models_path*.csv
 full_metrics_node_*.csv
 f1scores*.txt
 accs*.txt
+get_times*
+send_times*

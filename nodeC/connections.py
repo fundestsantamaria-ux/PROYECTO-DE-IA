@@ -2,6 +2,7 @@ import os
 from .avg_model import average_models, build_model
 import threading
 import struct
+import time
 
 def recv_exact(sock, n_bytes):
     """Asegura recibir exactamente n_bytes del socket"""
@@ -21,18 +22,19 @@ def sendconverge(connections, end_signal):
         except Exception as e:
             print(f"   [!] Error enviando al cliente {i+1} ({addr}): {e}", flush=True)
 
-def handle_client(conn, addr, idx, PATH_RECVMODELS, f1scores, accs):
+def handle_client(conn, addr, idx, PATH_RECVMODELS, f1scores, accs, times):
+    init = time.time()
     try:
         model_f1score_bytes = recv_exact(conn, 8)
         if not model_f1score_bytes: return
         model_f1score = struct.unpack('!d', model_f1score_bytes)[0]
-        f1scores.append(model_f1score)
+        f1scores[idx] = model_f1score
         print(f"F1-score del modelo recibido de cliente {idx}, F1-score: {model_f1score}", flush=True)
 
         model_acc_bytes = recv_exact(conn, 8)
         if not model_acc_bytes: return
         model_acc = struct.unpack('!d', model_acc_bytes)[0]
-        accs.append(model_acc)
+        accs[idx] = model_acc
         print(f"F1-score del modelo recibido de cliente {idx}, Accuracy: {model_acc}", flush=True)
 
         model_size_bytes = recv_exact(conn, 8)
@@ -53,25 +55,28 @@ def handle_client(conn, addr, idx, PATH_RECVMODELS, f1scores, accs):
 
     except Exception as e:
         print(f"[!] Error recibiendo modelo del nodo {idx}: {e}", flush=True)
+    end = time.time()
+    times[idx] = end-init
 
-def get_models(connections, idxs, PATH_RECVMODELS, scores_f1, scores_acc):
+def get_models(connections, idxs, PATH_RECVMODELS, scores_f1, scores_acc, round_times):
     print("\n[>] Esperando modelos de los clientes...", flush=True)
     threads = []
-    f1scores = []
-    accs = []
+    f1scores = {}
+    accs = {}
+    times = {}
     for conn, addr, idx in zip([c[0] for c in connections], [c[1] for c in connections], idxs):
-        t = threading.Thread(target=handle_client, args=(conn, addr, idx, PATH_RECVMODELS, f1scores, accs))
+        t = threading.Thread(target=handle_client, args=(conn, addr, idx, PATH_RECVMODELS, f1scores, accs, times))
         t.start()
         threads.append(t)
-
     for t in threads:
         t.join()
 
     scores_f1.append(f1scores)
     scores_acc.append(accs)
+    round_times.append(times)
     print("[✓] Todos los modelos recibidos", flush=True)
 
-def send_avg_model(connections, PATH_RECVMODELS, PATH_AVGMODELS, ROUND_number, CSV_MODELS):
+def send_avg_model(connections, idxs, PATH_RECVMODELS, PATH_AVGMODELS, ROUND_number, CSV_MODELS, round_times):
     print("\n[>] Promediando modelos...", flush=True)
     
     # IMPORTANTE: average_models ahora propaga excepciones, no hace exit()
@@ -92,7 +97,9 @@ def send_avg_model(connections, PATH_RECVMODELS, PATH_AVGMODELS, ROUND_number, C
     
     print("[>] Enviando modelo promediado a todos los clientes...", flush=True)
     
-    for i, (conn, addr) in enumerate(connections):
+    times = {}
+    for idx, (conn, addr) in zip(idxs, connections):
+        init = time.time()
         try:
             print("Enviando tamaño del modelo...", flush=True)
             model_size = os.path.getsize(avg_model_path)
@@ -102,14 +109,18 @@ def send_avg_model(connections, PATH_RECVMODELS, PATH_AVGMODELS, ROUND_number, C
                 while chunk := f.read(4096):
                     conn.sendall(chunk)
             
-            print(f"   [✓] Modelo enviado al cliente {i+1}", flush=True)
+            print(f"   [✓] Modelo enviado al cliente {idx}", flush=True)
         except Exception as e:
-            print(f"   [!] Error enviando al cliente {i+1} ({addr}): {e}", flush=True)
-    
+            print(f"   [!] Error enviando al cliente {idx} ({addr}): {e}", flush=True)
+        end = time.time()
+        times[idx] = end - init
+
+    round_times.append(times)
     for filemodel in os.listdir(PATH_RECVMODELS):
         os.remove(os.path.join(PATH_RECVMODELS, filemodel))
     
     print("[✓] Todos los clientes actualizados.", flush=True)
+
 
 
 def initial(sock, connections, idxs, NCLIENTS, PARAMS, PATH_AVGMODELS, CSV_MODELS):

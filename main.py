@@ -1,7 +1,7 @@
 from nodeC.server import server
 from nodex.client import client
 from coordination import coordinate
-from utils import unificar_metricas_csv
+from utils import save_metrics, unificar_metricas_csv
 import os
 import time
 import sys
@@ -17,7 +17,7 @@ NETWORK_ADDRESSES = [f"{IP}:{port.strip()}" for port in os.getenv("PORTS").split
 DOCKER_ADDRESS = f"{IP}:{DOCKER_PORT}"
 PEERS = [port for port in NETWORK_ADDRESSES if port != DOCKER_ADDRESS]
 
-ROUNDS = 1
+ROUNDS = 5
 SUB_ROUNDS = 5
 
 if MODE==0 and ROUNDS > 1:
@@ -42,53 +42,53 @@ if __name__ == '__main__':
     # Espera inicial para que Docker estabilice la red
     time.sleep(3)
 
+    init = time.time()
     for round in range(ROUNDS): 
         print(f"\n>>> INICIO RONDA {round} <<<", flush=True)
+
         
         if MODE==1:
             print("Semi-Descentrilized Modo Configurado", flush=True)
             # 1. COORDINACIÓN
             id_nodeserver = coordinate(PEERS, round)
+            server_ip = NETWORK_ADDRESSES[int(id_nodeserver)-1]
+            port_ip = int(server_ip.split(':')[1])
+            nodo_ip = server_ip.split(':')[0]
             print(f"Selected node ID: {id_nodeserver} address: {nodo_ip}:{port_ip}", flush=True)
         else:
             print("Centralizado Modo Configurado", flush=True)
             id_nodeserver = 0
-
-        server_ip = NETWORK_ADDRESSES[int(id_nodeserver)]
-        port_ip = int(server_ip.split(':')[1])
-        nodo_ip = server_ip.split(':')[0]
+            server_ip = NETWORK_ADDRESSES[int(id_nodeserver)]
+            port_ip = int(server_ip.split(':')[1])
+            nodo_ip = server_ip.split(':')[0]
 
         time.sleep(2)  # Pequeña espera antes de iniciar la siguiente fase
 
-        f1scores = []
-        accs = []
+        f1scores:list[dict[str, float]] = []
+        accs:list[dict[str, float]] = []
+        get_times:list[dict[str, float]] = []
+        send_times:list[dict[str, float]] = []
         
         # 2. ENTRENAMIENTO
         if server_ip == DOCKER_ADDRESS:
             # Soy el servidor
             print(f"[MAIN] Iniciando Servidor FL (Esperando {NCLIENTS - 1} clientes)...", flush=True)
-            # IMPORTANTE: Usamos BIND_PORT (interno 5000), no DOCKER_PORT (externo)
-            server(BIND_PORT, SUB_ROUNDS + 1, NCLIENTS - 1, PARAMS, f1scores, accs)
+            server(BIND_PORT, SUB_ROUNDS + 1, NCLIENTS - 1, PARAMS, f1scores, accs, get_times, send_times)
         
         else:
-            time.sleep(5)
+            time.sleep(2)
             print(f"[MAIN] Conectando al servidor {nodo_ip}:{port_ip}...", flush=True)
             client(nodo_ip, port_ip, SUB_ROUNDS + 1)
 
-
-        print(f1scores)
-        with open(f'f1scores{NODE_ID}.txt', "+a") as f:
-            for line in f1scores:
-                f.write(','.join([str(l) for l in line]) + '\n')
-        print(accs)
-        with open(f'accs{NODE_ID}.txt', "+a") as f:
-            for line in accs:
-                f.write(','.join([str(l) for l in line]) + '\n')
+        save_metrics(f1scores, accs, get_times, send_times, NODE_ID)
 
         print(f"Round {round} completed!!!", flush=True)
         print("="*60,'\n', flush=True)
 
         unificar_metricas_csv(NODE_ID)
+
+    end = time.time()
     
     print("="*60, '\n')
     print("Federated training completed successfully!!!", flush=True)
+    print(f"Training Time: {end-init}s")

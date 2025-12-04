@@ -4,99 +4,146 @@ import random
 
 def unificar_metricas_csv(node_id):
     """
-    Une el archivo CSV (modelo), TXT (f1-scores) y TXT (accuracies),
-    saltando el ID del nodo actual en los encabezados de ambos TXT.
+    Une:
+    - CSV principal de modelos
+    - TXT de f1scores
+    - TXT de accuracies
+    - TXT de get_times
+    - TXT de send_times
+
+    Todos con formato:
+        node_id,value
+
+    Se ignora el nodo actual (node_id).
+    Archivos vacíos se omiten automáticamente.
     """
-    # 1. Nombres de archivos
     csv_filename = f"models_path_{node_id}.csv"
-    txt_f1scores = f"f1scores{node_id}.txt"
-    txt_accs = f"accs{node_id}.txt"  # <--- Nuevo archivo
+    txt_files = {
+        "f1": f"f1scores{node_id}.txt",
+        "acc": f"accs{node_id}.txt",
+        "get_time": f"get_times{node_id}.txt",
+        "send_time": f"send_times{node_id}.txt"
+    }
     output_filename = f"full_metrics_node_{node_id}.csv"
 
-    # Verificar que existan todos
-    if not os.path.exists(csv_filename) or not os.path.exists(txt_f1scores) or not os.path.exists(txt_accs): return
+    # Validar que exista CSV principal
+    if not os.path.exists(csv_filename):
+        print(f"[!] Falta el archivo: {csv_filename}")
+        return
 
     try:
-        with open(csv_filename, mode='r', newline='', encoding='utf-8') as f_csv:
-            reader_csv = csv.reader(f_csv)
-            try:
-                header_csv = next(reader_csv) 
-            except StopIteration:
-                print(f"[!] El archivo {csv_filename} está vacío.")
-                return
-            rows_csv = list(reader_csv)
+        # CSV principal
+        with open(csv_filename, "r", encoding="utf-8") as f_csv:
+            reader = csv.reader(f_csv)
+            header_csv = next(reader)
+            rows_csv = list(reader)
 
-        with open(txt_f1scores, mode='r', newline='', encoding='utf-8') as f_f1:
-            reader_f1 = csv.reader(f_f1)
-            rows_f1 = list(reader_f1)
-
-        if not rows_f1:
-            print(f"[!] El archivo {txt_f1scores} está vacío.")
-            return
-
-        with open(txt_accs, mode='r', newline='', encoding='utf-8') as f_acc:
-            reader_acc = csv.reader(f_acc)
-            rows_acc = list(reader_acc)
-
-        if not rows_acc:
-            print(f"[!] El archivo {txt_accs} está vacío.")
-            return
-        
-        # --- Generar Headers para F1 ---
-        num_cols_f1 = len(rows_f1[0])
-        header_f1 = []
-        contador = 1
-        while len(header_f1) < num_cols_f1:
-            if contador == int(node_id):
-                contador += 1
+        # Cargar TXT y agrupar por nodo, ignorando archivos vacíos
+        metrics_data = {}
+        for key, filename in txt_files.items():
+            metrics_data[key] = {}
+            if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+                print(f"[!] Archivo vacío o no existe, se ignora: {filename}")
                 continue
-            header_f1.append(f"f1-score_node_{contador}")
-            contador += 1
+            with open(filename, "r", encoding="utf-8") as f:
+                for row in csv.reader(f):
+                    if len(row) < 2:
+                        continue  # Ignorar filas mal formateadas
+                    node, value = row
+                    if int(node) == int(node_id):
+                        continue
+                    if node not in metrics_data[key]:
+                        metrics_data[key][node] = []
+                    metrics_data[key][node].append(value)
 
-        # --- Generar Headers para Accuracy (Misma lógica) ---
-        num_cols_acc = len(rows_acc[0])
-        header_acc = []
-        contador = 1
-        while len(header_acc) < num_cols_acc:
-            if contador == int(node_id):
-                contador += 1
-                continue
-            header_acc.append(f"acc_node_{contador}") # Nombre diferente
-            contador += 1
-        
-        # Unimos las 3 listas de encabezados
-        full_header = header_csv + header_f1 + header_acc
+        # Construir headers dinámicos
+        full_header = header_csv
+        for key in txt_files.keys():
+            for node in sorted(metrics_data[key].keys(), key=int):
+                full_header.append(f"{key}_node_{node}")
 
-        with open(output_filename, mode='w', newline='', encoding='utf-8') as f_out:
+        # Construir filas finales
+        final_rows = []
+        num_rows = len(rows_csv)
+        for i in range(num_rows):
+            row = list(rows_csv[i])  # copiar fila CSV
+            for key in txt_files.keys():
+                for node in sorted(metrics_data[key].keys(), key=int):
+                    values = metrics_data[key][node]
+                    # Usar valor si existe, si no '', para filas faltantes
+                    row.append(values[i] if i < len(values) else '')
+            final_rows.append(row)
+
+        # Escribir archivo final
+        with open(output_filename, "w", newline="", encoding="utf-8") as f_out:
             writer = csv.writer(f_out)
-            
-            # Escribir cabecera total
             writer.writerow(full_header)
-            
-            # Escribir filas combinadas
-            # Usamos zip con 3 listas: CSV, F1 y ACC
-            # zip parará cuando la lista más corta se acabe (deberían ser iguales)
-            for row_c, row_f1, row_a in zip(rows_csv, rows_f1, rows_acc):
-                writer.writerow(row_c + row_f1 + row_a)
+            writer.writerows(final_rows)
 
         print(f"[✓] Archivo generado: {output_filename}")
-        print(f"    Columnas: {len(full_header)}")
+        print(f"    Columnas totales: {len(full_header)}")
 
     except Exception as e:
         print(f"[!] Error procesando nodo {node_id}: {e}")
 
 
-def checkConvergence(scores:list[list[float, float, float]], patience:int, threshold:float=0.01)->bool:
+def save_metrics(f1scores, accs, get_times, send_times, NODE_ID):
+    print(f1scores)
+    with open(f'f1scores{NODE_ID}.txt', "a+") as f:
+        for d in f1scores:               # cada d es un diccionario
+            for node, scores in d.items():
+                if isinstance(scores, list):
+                    line = ",".join(str(x) for x in scores)
+                else:
+                    line = str(scores)
+                f.write(f"{node},{line}\n")
+    
+    print(accs)
+    with open(f'accs{NODE_ID}.txt', "a+") as f:
+        for d in accs:
+            for node, scores in d.items():
+                if isinstance(scores, list):
+                    line = ",".join(str(x) for x in scores)
+                else:
+                    line = str(scores)
+                f.write(f"{node},{line}\n")
+    
+    print(get_times)
+    with open(f'get_times{NODE_ID}.txt', "a+") as f:
+        for d in get_times:
+            for node, scores in d.items():
+                if isinstance(scores, list):
+                    line = ",".join(str(x) for x in scores)
+                else:
+                    line = str(scores)
+                f.write(f"{node},{line}\n")
+    
+    print(send_times)
+    with open(f'send_times{NODE_ID}.txt', "a+") as f:
+        for d in send_times:
+            for node, scores in d.items():
+                if isinstance(scores, list):
+                    line = ",".join(str(x) for x in scores)
+                else:
+                    line = str(scores)
+                f.write(f"{node},{line}\n")
+
+
+def checkConvergence(scores: list[dict[str, float]], patience: int, threshold: float = 0.01) -> bool:
     if len(scores) < patience:
         return False
 
-    recent_scores = scores[-patience]
-    for node in range(len(scores[-1])):
-      diff = recent_scores[node] - scores[-1][node]
-      if diff > threshold:
-          return False
-      if diff < -threshold:
-          return False
+    old = scores[-patience]   # dict: nodo → valor
+    new = scores[-1]          # dict: nodo → valor
+
+    # Asegurar que ambos diccionarios tienen mismas keys (por seguridad)
+    common_nodes = old.keys() & new.keys()
+
+    for node in common_nodes:
+        diff = new[node] - old[node]
+
+        if abs(diff) > threshold:
+            return False
 
     return True
 

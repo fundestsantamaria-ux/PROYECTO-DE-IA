@@ -216,26 +216,29 @@ Leader Selection Policy:
 Each node runs `metrics.sh` to gather hardware capabilities. The selection is probabilistic, weighted by the node's resources:
 
 ```python
-def select_leader(nodes, round):
-    scores = []
-    for x in nodes:
-        # Score calculation based on Network, RAM, CPU, GPU, and ID
-        score = (
-            0.5 * (0.5 * x['net_up'] + 0.5 * x['net_down']) +
-            0.3 * x['ram'] +
-            0.35 * x['cpu_mhz'] +
-            0.2 * int(x['gpu']) +
-            0.1 * (1 / int(x['id']))
-        )
-        scores.append(score)
+def seleccionar_servidor(csv_file, round):
+    nodos = []
+    try:
+        with open(csv_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                nodo = {
+                    "id": row['node_id'],
+                    "ip": row['ip'],
+                    "ram": float(row['ram_disponible_mb']),
+                    "net_up": float(row['red_subida_mbps']),
+                    "net_down": float(row['red_descarga_mbps']),
+                    "cpu_mhz": float(row['cpu_mhz']),
+                    "gpu": 1 if row.get('gpu_activa') == 'true' else 0
+                }
+                nodos.append(nodo)
+    except Exception:
+        return 1
 
-    # Seed ensures all nodes independently select the same leader
-    random.seed(round)
-    winner = random.choices(nodes, weights=scores, k=1)[0]
-    random.seed(None) 
-    
-    return winner
+    if not nodos: return 1
 
+    ganador = select_leader(nodos, round)
+    return ganador['id']
 ```
 By using the round number as a seed, all nodes independently determine the designated server without needing a voting phase over the 
 network. The weighted probability ensures load balancing while favoring more powerful nodes.

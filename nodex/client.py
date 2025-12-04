@@ -1,6 +1,5 @@
 import socket
 import sys
-import uuid
 import os
 from .model_build import FederatedModel
 from .connections import *
@@ -18,8 +17,7 @@ def run(sock, HOST, PORT, ROUNDS):
 
     models_info = []
 
-    # Generar ID único del nodo
-    node_id = str(uuid.uuid4())
+    node_id = NODE
     print(f"\n[>] ID de nodo: {node_id}", flush=True)
     
     # Inicializar modelo federado
