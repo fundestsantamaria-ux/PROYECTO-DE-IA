@@ -1,0 +1,9 @@
+__pycache__/
+*/__pycache__
+nodo*/
+*/models*
+scores*
+models_path*.csv
+full_metrics_node_*.csv
+f1scores*.txt
+accs*.txt

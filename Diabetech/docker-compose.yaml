@@ -1,0 +1,34 @@
+services:
+  nodo3:
+    image: federated-semidescentralized_image:latest
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ID=3
+      - BIND_PORT=5000
+      - DOCKER_PORT=5000
+      - PORTS=5000,5001,5000,5001
+      - MODE=1
+    volumes:
+      - .:/app
+      - ./nodo3:/app/nodo3
+    command: >
+      sh -c "mkdir -p /app/nodo3 && python main.py > /app/nodo3/nodo3.log 2>&1"
+
+  nodo4:
+    image: federated-semidescentralized_image:latest
+    build: .
+    ports:
+      - "5001:5000"
+    environment:
+      - NODE_ID=4
+      - BIND_PORT=5000
+      - DOCKER_PORT=5000
+      - PORTS=5000,5001,5000,5001
+      - MODE=1
+    volumes:
+      - .:/app
+      - ./nodo4:/app/nodo4
+    command: >
+      sh -c "mkdir -p /app/nodo4 && python main.py > /app/nodo4/nodo4.log 2>&1"
