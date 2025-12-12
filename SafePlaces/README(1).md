@@ -41,6 +41,7 @@ No predice incidentes, pero clasifica patrones y zonas según nivel de riesgo/si
 
 Proyecto-Seguridad/
 │
+
 ├── SEGURIDAD.xlsx         # Base de datos original
 
 ├── mapa_zonas.html        # Mapa generado automáticamente
@@ -64,11 +65,17 @@ Proyecto-Seguridad/
 
 ##  Interpretación de colores
 
+
 | Clúster | Color      | Significado aproximado                     |
+
 | ------- | ---------- | ------------------------------------------ |
+
 | 0       | 🟢 Verde   | Zonas con mejores indicadores              |
+
 | 1       | 🟠 Naranja | Zonas intermedias o mixtas                 |
+
 | 2       | 🔴 Rojo    | Zonas con más reportes / menos iluminación |
+
 
 
 ## Resultado final
