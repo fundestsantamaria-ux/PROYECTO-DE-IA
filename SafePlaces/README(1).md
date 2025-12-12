@@ -7,19 +7,19 @@ El sistema toma datos recopilados en campo (iluminación, comercios, reportes, f
 
 ## Características principales
 
-✔ Carga un archivo Excel con datos reales recolectados
+Carga un archivo Excel con datos reales recolectados
 
-✔ Limpieza y estandarización del dataset
+Limpieza y estandarización del dataset
 
-✔ Conversión de datos en formato numérico
+Conversión de datos en formato numérico
 
-✔ Clasificación automática de zonas usando K-Means (Machine Learning no supervisado)
+Clasificación automática de zonas usando K-Means (Machine Learning no supervisado)
 
-✔ Generación de un mapa HTML interactivo con marcadores
+Generación de un mapa HTML interactivo con marcadores
 
-✔ Círculos coloreados y ampliados para mejor visibilidad
+Círculos coloreados y ampliados para mejor visibilidad
 
-✔ Código en Python, fácil de modificar o ampliar
+Código en Python, fácil de modificar o ampliar
 
 # ¿El proyecto usa Inteligencia Artificial?
 
@@ -42,8 +42,11 @@ No predice incidentes, pero clasifica patrones y zonas según nivel de riesgo/si
 Proyecto-Seguridad/
 │
 ├── SEGURIDAD.xlsx         # Base de datos original
+
 ├── mapa_zonas.html        # Mapa generado automáticamente
+
 ├── main.py                # Código principal del análisis
+
 └── README.md              # Documentación del proyecto
 
 ## Tecnologías utilizadas
