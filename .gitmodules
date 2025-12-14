@@ -1,0 +1,3 @@
+[submodule "IntiLearn"]
+	path = IntiLearn
+	url = https://github.com/Lelis10/IntiLearnAI
